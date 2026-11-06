@@ -37,7 +37,7 @@
   }
 
   function scan() {
-    if (!app || !app.initData) {
+    if (!app || app.platform === "unknown") {  // outside Telegram; initData may be empty for keyboard buttons
       status.textContent = "Открой эту страницу кнопкой «📷 Чек» в чате Капусты.";
       return;
     }

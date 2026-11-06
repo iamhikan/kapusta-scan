@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Сканер чека</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root { --bg: #ffffff; --fg: #222222; --hint: #888888; --btn: #2481cc; --btn-fg: #ffffff; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px 16px; box-sizing: border-box; text-align: center;
+    font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--tg-theme-bg-color, var(--bg)); color: var(--tg-theme-text-color, var(--fg));
+  }
+  #status { margin: 0 0 20px; color: var(--tg-theme-hint-color, var(--hint)); }
+  button {
+    font: inherit; border: 0; border-radius: 10px; padding: 12px 28px;
+    background: var(--tg-theme-button-color, var(--btn)); color: var(--tg-theme-button-text-color, var(--btn-fg));
+  }
+</style>
+</head>
+<body>
+<p id="status">Открываю камеру…</p>
+<button id="scan" type="button">📷 Сканировать чек</button>
+<script>
+  // Kapusta receipt scanner: Telegram's native live QR scanner. A fiscal receipt link (suf.purs.gov.rs) goes to the
+  // bot with sendData (works only when opened from a reply keyboard button); the bot gets it as a web_app_data message.
+  const app = window.Telegram && window.Telegram.WebApp;
+  const status = document.getElementById("status");
+  const RECEIPT = /^https?:\/\/suf\.purs\.gov\.rs\/\S*[?&]vl=\S+$/i;
+  let sent = false;
+
+  function receiptLink(text) {
+    const link = String(text || "").trim();
+    return RECEIPT.test(link) && new TextEncoder().encode(link).length <= 4096 ? link : null;
+  }
+
+  function scan() {
+    if (!app || !app.initData) {
+      status.textContent = "Открой эту страницу кнопкой «📷 Чек» в чате Капусты.";
+      return;
+    }
+    if (!app.isVersionAtLeast("6.4")) {
+      status.textContent = "Обнови Telegram: сканер QR есть с версии 6.4.";
+      return;
+    }
+    try {
+      app.showScanQrPopup({ text: "Наведи на QR-код чека" }, function (text) {
+        const link = receiptLink(text);
+        if (!link) {
+          status.textContent = "Это не QR чека. Наведи на QR внизу чека.";
+          return false;  // keep scanning
+        }
+        sent = true;
+        status.textContent = "Отправляю чек…";
+        app.sendData(link);  // closes the Mini App
+        return true;
+      });
+    } catch (e) {
+      status.textContent = "Здесь сканер не работает. Открой с телефона.";
+    }
+  }
+
+  if (app) {
+    app.ready();
+    app.expand();
+    app.onEvent("scanQrPopupClosed", function () { if (!sent) app.close(); });
+  }
+  document.getElementById("scan").addEventListener("click", scan);
+  scan();
+</script>
+</body>
+</html>
